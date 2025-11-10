@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lines by XAWPHAD</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: black;
+  }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="main"></canvas>
+
+<script>
+const main = document.getElementById("main");
+const ctxMain = main.getContext("2d");
+main.width = innerWidth;
+main.height = innerHeight;
+
+window.addEventListener("resize", () => {
+  main.width = innerWidth;
+  main.height = innerHeight;
+  initLayers();
+});
+
+const balls = [];
+let layers = [];
+
+function makeLayer() {
+  const c = document.createElement("canvas");
+  c.width = main.width;
+  c.height = main.height;
+  return c;
+}
+
+function initLayers() {
+  layers = balls.map(() => makeLayer());
+}
+
+// ball class
+class Ball {
+  constructor(x, y, radius, color, dx, dy, layer) {
+    this.x = x;
+    this.y = y;
+    this.prevX = x;
+    this.prevY = y;
+    this.radius = radius;
+    this.color = color;
+    this.dx = dx;
+    this.dy = dy;
+    this.layer = layer;
+    this.ctx = layer.getContext("2d");
+  }
+  move() {
+    this.prevX = this.x;
+    this.prevY = this.y;
+    this.x += this.dx;
+    this.y += this.dy;
+
+    if (this.x - this.radius < 0 || this.x + this.radius > main.width)
+      this.dx *= -1;
+    if (this.y - this.radius < 0 || this.y + this.radius > main.height)
+      this.dy *= -1;
+  }
+  draw() {
+    const c = this.ctx;
+    // draw continuous line on this ball's personal layer
+    c.beginPath();
+    c.moveTo(this.prevX, this.prevY);
+    c.lineTo(this.x, this.y);
+    c.strokeStyle = this.color;
+    c.lineWidth = 2;
+    c.stroke();
+
+    // draw the ball itself
+    c.beginPath();
+    c.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    c.fillStyle = this.color;
+    c.fill();
+  }
+}
+
+main.addEventListener("click", (e) => {
+  const radius = Math.random() * 15 + 5;
+  const color = `hsl(${Math.random() * 360}, 100%, 50%)`;
+  const speed = 40 / radius;
+  const angle = Math.random() * Math.PI * 2;
+  const dx = Math.cos(angle) * speed;
+  const dy = Math.sin(angle) * speed;
+
+  const layer = makeLayer();
+  layers.push(layer);
+  const ball = new Ball(e.clientX, e.clientY, radius, color, dx, dy, layer);
+  balls.push(ball);
+});
+
+function animate() {
+  // update each ball's layer
+  for (const b of balls) {
+    b.move();
+    b.draw();
+  }
+
+  // clear main canvas
+  ctxMain.clearRect(0, 0, main.width, main.height);
+
+  // composite all layers with 'difference'
+  ctxMain.globalCompositeOperation = "source-over";
+  ctxMain.fillStyle = "black";
+  ctxMain.fillRect(0, 0, main.width, main.height);
+  ctxMain.globalCompositeOperation = "difference";
+  for (const layer of layers) {
+    ctxMain.drawImage(layer, 0, 0);
+  }
+
+  requestAnimationFrame(animate);
+}
+
+animate();
+</script>
+</body>
+</html>

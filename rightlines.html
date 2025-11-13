@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Multicolored Moving Lines</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: black;
+  }
+  canvas {
+    display: block;
+    background: black;
+  }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+
+// Pick a random direction (up, down, left, right)
+function pickRandomDirection() {
+  const dirs = [
+    {dx: 0, dy: -1}, // up
+    {dx: 0, dy: 1},  // down
+    {dx: -1, dy: 0}, // left
+    {dx: 1, dy: 0}   // right
+  ];
+  return dirs[Math.floor(Math.random() * dirs.length)];
+}
+
+// Random interval between 1s and 7s
+function getRandomInterval() {
+  return 1000 + Math.random() * 6000;
+}
+
+// Generate a random color
+function randomColor() {
+  return `hsl(${Math.random() * 360}, 100%, 70%)`;
+}
+
+// Store all lines
+let lines = [];
+
+// Add a new line on click
+canvas.addEventListener('click', (e) => {
+  const dir = pickRandomDirection();
+  lines.push({
+    x: e.clientX,
+    y: e.clientY,
+    dx: dir.dx,
+    dy: dir.dy,
+    color: randomColor(),
+    nextChange: Date.now() + getRandomInterval()
+  });
+});
+
+function animate() {
+  const now = Date.now();
+
+  for (let line of lines) {
+    // Change direction and color at random interval
+    if (now >= line.nextChange) {
+      const dir = pickRandomDirection();
+      line.dx = dir.dx;
+      line.dy = dir.dy;
+      line.color = randomColor(); // change color
+      line.nextChange = now + getRandomInterval();
+    }
+
+    const oldX = line.x;
+    const oldY = line.y;
+
+    // Move line
+    line.x += line.dx * 2;
+    line.y += line.dy * 2;
+
+    // Bounce off edges
+    if (line.x <= 0 || line.x >= canvas.width) line.dx *= -1;
+    if (line.y <= 0 || line.y >= canvas.height) line.dy *= -1;
+
+    // Draw trail
+    ctx.beginPath();
+    ctx.moveTo(oldX, oldY);
+    ctx.lineTo(line.x, line.y);
+    ctx.strokeStyle = line.color;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  requestAnimationFrame(animate);
+}
+
+animate();
+</script>
+</body>
+</html>

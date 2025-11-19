@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>super fission by XAWPHAD</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        #canvas {
+            display: block;
+            cursor: crosshair;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        // Get canvas and context
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Set canvas to full screen
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        
+        // Ball class
+        class Ball {
+            constructor(x, y, radius, color, velocityX, velocityY) {
+                this.x = x;
+                this.y = y;
+                this.radius = radius;
+                this.color = color;
+                this.velocityX = velocityX;
+                this.velocityY = velocityY;
+                this.mass = radius * radius; // Mass proportional to area
+                this.collisionCount = 0; // Track number of collisions
+                this.maxCollisions = 3; // Disappear after 3 collisions
+            }
+            
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.closePath();
+                
+                // Add a subtle highlight for 3D effect
+                ctx.beginPath();
+                ctx.arc(this.x - this.radius/3, this.y - this.radius/3, this.radius/3, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.fill();
+                ctx.closePath();
+            }
+            
+            update() {
+                // Move the ball
+                this.x += this.velocityX;
+                this.y += this.velocityY;
+                
+                // Bounce off walls with some energy loss
+                if (this.x - this.radius <= 0) {
+                    this.velocityX = Math.abs(this.velocityX) * 0.95;
+                    this.x = this.radius;
+                } else if (this.x + this.radius >= canvas.width) {
+                    this.velocityX = -Math.abs(this.velocityX) * 0.95;
+                    this.x = canvas.width - this.radius;
+                }
+                
+                if (this.y - this.radius <= 0) {
+                    this.velocityY = Math.abs(this.velocityY) * 0.95;
+                    this.y = this.radius;
+                } else if (this.y + this.radius >= canvas.height) {
+                    this.velocityY = -Math.abs(this.velocityY) * 0.95;
+                    this.y = canvas.height - this.radius;
+                }
+                
+                // Apply a tiny bit of gravity
+                this.velocityY += 0.05;
+                
+                // Apply a tiny bit of air resistance
+                this.velocityX *= 0.998;
+                this.velocityY *= 0.998;
+            }
+        }
+        
+        // Array to store all balls
+        let balls = [];
+        
+        // Function to generate a random color
+        function getRandomColor() {
+            const colors = [
+                '#FF5252', '#FF4081', '#E040FB', '#7C4DFF', '#536DFE',
+                '#448AFF', '#40C4FF', '#18FFFF', '#64FFDA', '#69F0AE',
+                '#B2FF59', '#EEFF41', '#FFFF00', '#FFD740', '#FFAB40',
+                '#FF6E40', '#4CAF50', '#2196F3', '#3F51B5', '#9C27B0'
+            ];
+            return colors[Math.floor(Math.random() * colors.length)];
+        }
+        
+        // Function to create a random ball
+        function createRandomBall(x, y) {
+            const minRadius = 15;
+            const maxRadius = 40;
+            const radius = Math.random() * (maxRadius - minRadius) + minRadius;
+            
+            // Generate random color
+            const color = getRandomColor();
+            
+            // Random velocity with minimum speed
+            const minSpeed = 2;
+            const maxSpeed = 6;
+            const speed = Math.random() * (maxSpeed - minSpeed) + minSpeed;
+            const angle = Math.random() * Math.PI * 2;
+            const velocityX = Math.cos(angle) * speed;
+            const velocityY = Math.sin(angle) * speed;
+            
+            return new Ball(x, y, radius, color, velocityX, velocityY);
+        }
+        
+        // Function to check collision between two balls
+        function checkCollision(ball1, ball2) {
+            const dx = ball1.x - ball2.x;
+            const dy = ball1.y - ball2.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            return distance < ball1.radius + ball2.radius;
+        }
+        
+        // Function to handle collision between two balls
+        function handleCollision(ball1, ball2) {
+            // Calculate collision vector
+            const collisionVector = {
+                x: ball2.x - ball1.x,
+                y: ball2.y - ball1.y
+            };
+            
+            // Calculate distance between balls
+            const distance = Math.sqrt(
+                collisionVector.x * collisionVector.x + 
+                collisionVector.y * collisionVector.y
+            );
+            
+            // Normalize collision vector
+            const collisionNormal = {
+                x: collisionVector.x / distance,
+                y: collisionVector.y / distance
+            };
+            
+            // Relative velocity
+            const relativeVelocity = {
+                x: ball1.velocityX - ball2.velocityX,
+                y: ball1.velocityY - ball2.velocityY
+            };
+            
+            // Speed along collision normal
+            const speed = relativeVelocity.x * collisionNormal.x + relativeVelocity.y * collisionNormal.y;
+            
+            // Only proceed if balls are moving toward each other
+            if (speed < 0) {
+                return;
+            }
+            
+            // Calculate impulse
+            const impulse = 2 * speed / (ball1.mass + ball2.mass);
+            
+            // Update velocities
+            ball1.velocityX -= impulse * ball2.mass * collisionNormal.x;
+            ball1.velocityY -= impulse * ball2.mass * collisionNormal.y;
+            ball2.velocityX += impulse * ball1.mass * collisionNormal.x;
+            ball2.velocityY += impulse * ball1.mass * collisionNormal.y;
+            
+            // Separate balls to prevent sticking
+            const overlap = (ball1.radius + ball2.radius - distance) / 2;
+            ball1.x -= overlap * collisionNormal.x;
+            ball1.y -= overlap * collisionNormal.y;
+            ball2.x += overlap * collisionNormal.x;
+            ball2.y += overlap * collisionNormal.y;
+            
+            // Increment collision counts
+            ball1.collisionCount++;
+            ball2.collisionCount++;
+            
+            // Split balls if they're large enough
+            if (ball1.radius > 10) {
+                splitBall(ball1);
+            }
+            
+            if (ball2.radius > 10) {
+                splitBall(ball2);
+            }
+        }
+        
+        // Function to split a ball into smaller balls
+        function splitBall(ball) {
+            // Remove the original ball
+            const index = balls.indexOf(ball);
+            if (index > -1) {
+                balls.splice(index, 1);
+            }
+            
+            // Create 2 or 3 smaller balls
+            const numNewBalls = Math.random() > 0.5 ? 2 : 3;
+            const newRadius = ball.radius / Math.sqrt(numNewBalls);
+            
+            for (let i = 0; i < numNewBalls; i++) {
+                // Calculate position with slight offset
+                const angle = (Math.PI * 2 / numNewBalls) * i;
+                const offsetX = Math.cos(angle) * ball.radius * 0.7;
+                const offsetY = Math.sin(angle) * ball.radius * 0.7;
+                
+                // Create new ball with random color
+                const newBall = new Ball(
+                    ball.x + offsetX,
+                    ball.y + offsetY,
+                    newRadius,
+                    getRandomColor(),
+                    ball.velocityX + (Math.random() - 0.5) * 4,
+                    ball.velocityY + (Math.random() - 0.5) * 4
+                );
+                
+                balls.push(newBall);
+            }
+        }
+        
+        // Animation loop
+        function animate() {
+            // Clear canvas completely (no trail effect)
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Update and draw all balls
+            for (let i = balls.length - 1; i >= 0; i--) {
+                balls[i].update();
+                balls[i].draw();
+                
+                // Remove balls that have reached max collisions
+                if (balls[i].collisionCount >= balls[i].maxCollisions) {
+                    balls.splice(i, 1);
+                    continue;
+                }
+                
+                // Check for collisions with other balls
+                for (let j = i - 1; j >= 0; j--) {
+                    if (checkCollision(balls[i], balls[j])) {
+                        handleCollision(balls[i], balls[j]);
+                    }
+                }
+            }
+            
+            // Continue animation
+            requestAnimationFrame(animate);
+        }
+        
+        // Event listeners
+        canvas.addEventListener('click', (e) => {
+            const ball = createRandomBall(e.clientX, e.clientY);
+            balls.push(ball);
+        });
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                // Clear all balls
+                balls = [];
+            }
+        });
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+        
+        // Start animation with no initial balls
+        animate();
+    </script>
+</body>
+</html>

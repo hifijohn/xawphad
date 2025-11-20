@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ring fill by XAWPHAD</title>
+<style>
+  body, html { margin:0; padding:0; width:100%; height:100%; background:#000; overflow:hidden; cursor:crosshair; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+const rings = [];
+
+class Ring {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.radius = 0;
+    this.targetRadius = 15 + Math.random() * 90;
+    this.speed = 0.15 + Math.random() * 0.25;
+    this.growing = true;
+    this.color = null;
+  }
+
+  update() {
+    if (this.growing) {
+      this.radius += this.speed;
+      if (this.radius >= this.targetRadius) {
+        this.radius = this.targetRadius;
+        this.growing = false;
+      }
+    }
+  }
+
+  draw() {
+    if (this.color) {
+      ctx.fillStyle = this.color;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.5;
+    ctx.globalAlpha = this.color ? 0.6 : 0.9;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  isInside(px, py) {
+    if (this.growing) return false;
+    return Math.hypot(px - this.x, py - this.y) <= this.radius;
+  }
+
+  randomizeColor() {
+    const h = Math.random() * 360;
+    const s = 65 + Math.random() * 35;
+    const l = 45 + Math.random() * 35;
+    this.color = `hsl(${h}, ${s}%, ${l}%)`;
+  }
+}
+
+function animate() {
+  ctx.fillStyle = 'rgba(0,0,0,0.06)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  rings.forEach(r => { r.update(); r.draw(); });
+  requestAnimationFrame(animate);
+}
+animate();
+
+// Left click / tap
+canvas.addEventListener('click', e => {
+  const x = e.clientX;
+  const y = e.clientY;
+
+  for (let ring of rings) {
+    if (ring.isInside(x, y)) {
+      ring.randomizeColor();
+      return;
+    }
+  }
+  rings.push(new Ring(x, y));
+});
+
+// Right-click delete
+canvas.addEventListener('contextmenu', e => {
+  e.preventDefault(); // prevents the context menu from appearing
+  const x = e.clientX;
+  const y = e.clientY;
+
+  for (let i = rings.length - 1; i >= 0; i--) {
+    if (rings[i].isInside(x, y)) {
+      rings.splice(i, 1); // delete it
+      return;
+    }
+  }
+});
+
+// Mobile long-press ˜ right-click (delete)
+let longPressTimer;
+canvas.addEventListener('touchstart', e => {
+  const touch = e.touches[0];
+  longPressTimer = setTimeout(() => {
+    for (let i = rings.length - 1; i >= 0; i--) {
+      if (rings[i].isInside(touch.clientX, touch.clientY)) {
+        rings.splice(i, 1);
+        return;
+      }
+    }
+  }, 600); // 600ms long-press = delete
+});
+
+canvas.addEventListener('touchend', () => clearTimeout(longPressTimer));
+canvas.addEventListener('touchmove', () => clearTimeout(longPressTimer));
+</script>
+</body>
+</html>
